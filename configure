@@ -220,6 +220,7 @@ External library support:
   --enable-libiec61883     enable iec61883 via libiec61883 [no]
   --enable-libilbc         enable iLBC de/encoding via libilbc [no]
   --enable-libmfx          enable hardware encoding via libmfx [no]
+  --enable-libnvenc        enable NVIDIA NVENC encoder [no]
   --enable-libmodplug      enable ModPlug via libmodplug [no]
   --enable-libmp3lame      enable MP3 encoding via libmp3lame [no]
   --enable-libnut          enable NUT (de)muxing via libnut,
@@ -1364,6 +1365,7 @@ EXTERNAL_LIBRARY_LIST="
     libiec61883
     libilbc
 	libmfx
+	libnvenc
     libmodplug
     libmp3lame
     libnut
@@ -2347,6 +2349,7 @@ vc1_parser_select="mpegvideo startcode vc1_decoder"
 
 # external libraries
 h264_qsv_encoder_deps="libmfx"
+libnvenc_encoder_deps="libnvenc"
 libaacplus_encoder_deps="libaacplus"
 libcelt_decoder_deps="libcelt"
 libfaac_encoder_deps="libfaac"
@@ -4374,6 +4377,7 @@ die_license_disabled nonfree libfaac
 die_license_disabled nonfree nvenc
 enabled gpl && die_license_disabled_gpl nonfree libfdk_aac
 enabled gpl && die_license_disabled_gpl nonfree openssl
+enabled gpl && die_license_disabled_gpl nonfree libnvenc
 
 die_license_disabled version3 libopencore_amrnb
 die_license_disabled version3 libopencore_amrwb
@@ -4972,6 +4976,12 @@ enabled openssl           && { check_lib openssl/ssl.h SSL_library_init -lssl -l
 enabled qtkit_indev      && { check_header_oc QTKit/QTKit.h || disable qtkit_indev; }
 
 enabled libmfx				&& require_pkg_config libmfx "mfx/mfxvideo.h" MFXInit
+
+enabled libnvenc          && { { check_header nvEncodeAPI.h || die "ERROR: nvEncodeAPI.h header not found"; } &&
+                               { check_header cuda.h || die "ERROR: cuda.h header not found"; } &&
+                               { { check_lib2 "windows.h" LoadLibrary; } ||
+                                 { check_lib2 "dlfcn.h" dlopen -ldl; } ||
+                                 die "ERROR: LoadLibrary/dlopen not found for avisynth"; } }
 
 if enabled gnutls; then
     { check_lib nettle/bignum.h nettle_mpz_get_str_256 -lnettle -lhogweed -lgmp && enable nettle; } ||
