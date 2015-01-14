@@ -1081,6 +1081,19 @@ static int mov_write_avid_tag(AVIOContext *pb, MOVTrack *track)
     return 0;
 }
 
+static int mov_write_dpxe_tag(AVIOContext *pb, MOVTrack *track)
+{
+    avio_wb32(pb, 12);
+    ffio_wfourcc(pb, "DpxE");
+    if (track->enc->extradata_size >= 12 &&
+        !memcmp(&track->enc->extradata[4], "DpxE", 4)) {
+        avio_wb32(pb, track->enc->extradata[11]);
+    } else {
+        avio_wb32(pb, 1);
+    }
+    return 0;
+}
+
 static int mp4_get_codec_tag(AVFormatContext *s, MOVTrack *track)
 {
     int tag = track->enc->codec_tag;
@@ -1580,6 +1593,9 @@ static int mov_write_video_tag(AVIOContext *pb, MOVTrack *track)
              track->enc->codec_id == AV_CODEC_ID_VP6A) {
         /* Don't write any potential extradata here - the cropping
          * is signalled via the normal width/height fields. */
+    } else if (track->enc->codec_id == AV_CODEC_ID_R10K) {
+        if (track->enc->codec_tag == MKTAG('R','1','0','k'))
+            mov_write_dpxe_tag(pb, track);
     } else if (track->vos_len > 0)
         mov_write_glbl_tag(pb, track);
 
@@ -2507,12 +2523,12 @@ static int mov_write_mvex_tag(AVIOContext *pb, MOVMuxContext *mov)
 static int mov_write_mvhd_tag(AVIOContext *pb, MOVMuxContext *mov)
 {
     int max_track_id = 1, i;
-    int64_t max_track_len_temp, max_track_len = 0;
+    int64_t max_track_len = 0;
     int version;
 
     for (i = 0; i < mov->nb_streams; i++) {
         if (mov->tracks[i].entry > 0 && mov->tracks[i].timescale) {
-            max_track_len_temp = av_rescale_rnd(mov->tracks[i].track_duration,
+            int64_t max_track_len_temp = av_rescale_rnd(mov->tracks[i].track_duration,
                                                 MOV_TIMESCALE,
                                                 mov->tracks[i].timescale,
                                                 AV_ROUND_UP);
@@ -2530,7 +2546,8 @@ static int mov_write_mvhd_tag(AVIOContext *pb, MOVMuxContext *mov)
     }
 
     version = max_track_len < UINT32_MAX ? 0 : 1;
-    (version == 1) ? avio_wb32(pb, 120) : avio_wb32(pb, 108); /* size */
+    avio_wb32(pb, version == 1 ? 120 : 108); /* size */
+
     ffio_wfourcc(pb, "mvhd");
     avio_w8(pb, version);
     avio_wb24(pb, 0); /* flags */
